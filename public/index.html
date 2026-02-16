@@ -747,6 +747,26 @@
       if (el) el.remove();
     };
 
+    // --- Helper: delay ---
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // --- Render multiple parts sequentially ---
+    async function renderPartsSequentially(parts) {
+      // Store the full combined text in history for the API
+      const fullText = parts.join('\n\n');
+      history.push({ role: 'assistant', content: fullText });
+
+      for (let i = 0; i < parts.length; i++) {
+        // Show brief typing indicator between parts
+        if (i > 0) {
+          showTyping();
+          await delay(600 + Math.random() * 400); // 600-1000ms between parts
+          removeTyping();
+        }
+        appendMessage(parts[i], 'ai');
+      }
+    }
+
     // --- API Communication ---
     async function sendMessage(text, isHidden) {
       if (!text || isProcessing) return;
@@ -776,7 +796,11 @@
         const data = await response.json();
         removeTyping();
         
-        if (data.reply) {
+        if (data.parts && data.parts.length > 0) {
+          // Multi-part assessment — render sequentially
+          await renderPartsSequentially(data.parts);
+        } else if (data.reply) {
+          // Normal single message
           history.push({ role: 'assistant', content: data.reply });
           appendMessage(data.reply, 'ai');
         } else {
